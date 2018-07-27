@@ -65,7 +65,7 @@ public class CouchReaderTest {
     @Test
     public void testConstructor()
     {
-        PipedMock p = new PipedMock<JsonObject>();
+        PipedMock<Row> p = new PipedMock<Row>();
         CouchReader cr = new CouchReader(p);
         assertTrue(p.getSent().isEmpty());
     }
@@ -73,14 +73,14 @@ public class CouchReaderTest {
     @Test
     public void testSetSeq()
     {
-        Piped p = new PipedMock<JsonObject>();
+        Piped<Row> p = new PipedMock<Row>();
         CouchReader cr = new CouchReader(p);
         cr.setSeq("");
     }
 
     @Test(timeout=20000)
     public void checkData() {
-        PipedMock p = new PipedMock<JsonObject>();
+        PipedMock<Row> p = new PipedMock<Row>();
         CouchReader cr = new CouchReader(p);
         Thread t = new Thread(() -> cr.run());
         t.start();
