@@ -21,13 +21,19 @@ public class JsonValidator implements Piped<Row> {
     private Schema schema;
     private static final Logger logger = LogManager.getLogger();
 
-    private static final String SCHEMA_FILE = "validate.json";
+    private static final String SCHEMA_FILE = "/validate.json";
     
     JsonValidator(Piped<Row> target) {
         this.target = target;
         
         try (InputStream inputStream =
              getClass().getResourceAsStream(SCHEMA_FILE)) {
+            if (inputStream == null) {
+                String msg = "Could not find JSON Schema in the classpath: "
+                    + SCHEMA_FILE;
+                logger.fatal(msg);
+                throw new IllegalStateException(msg);
+            }
             JSONObject rawSchema =
                 new JSONObject(new JSONTokener(inputStream));
             schema = SchemaLoader.load(rawSchema);
