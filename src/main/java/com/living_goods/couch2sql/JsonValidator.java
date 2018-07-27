@@ -10,19 +10,20 @@ import org.json.JSONObject;
 import org.json.JSONTokener;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.lightcouch.ChangesResult.Row;
 
 /* Class which deserializes a JsonObject and passes it through,
  * subject to schema validation. Raises an exception if object does
  * not validate. */
 
-public class JsonValidator implements Piped<JsonObject> {
-    private Piped<String> target;
+public class JsonValidator implements Piped<Row> {
+    private Piped<Row> target;
     private Schema schema;
     private static final Logger logger = LogManager.getLogger();
 
     private static final String SCHEMA_FILE = "validate.json";
     
-    JsonValidator(Piped<String> target) {
+    JsonValidator(Piped<Row> target) {
         this.target = target;
         
         try (InputStream inputStream =
@@ -39,14 +40,13 @@ public class JsonValidator implements Piped<JsonObject> {
     }
 
     @Override
-    public void send(JsonObject input) {
+    public void send(Row input) {
         /* Convert JsonObject to JSONObject */
-        String jsonString = input.toString();
-        JSONObject jSONObject = new JSONObject(jsonString);
+        JSONObject jSONObject = new JSONObject(input.getDoc().toString());
         /* Raises an exception if validation fails. */
         schema.validate(jSONObject);
         
-        target.send(jsonString);
+        target.send(input);
     }
 
     /* We have no state here so this is a no-op. */

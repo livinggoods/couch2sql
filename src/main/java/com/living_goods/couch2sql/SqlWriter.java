@@ -20,10 +20,12 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 /* Class which updates SQL Server with the resulting data. */
-public class SqlWriter implements Piped<JsonNode> {
+public class SqlWriter implements Piped<TransformedChange> {
     private Connection connection;
     private String seq;
     private PreparedStatement getSeqStatement;
+    private PreparedStatement updateSeqStatement;
+    private PreparedStatement insertSeqStatement;
     private MultiKeyMap deleteStmtCache;
     private MultiKeyMap insertStmtCache;
     private static final Logger logger = LogManager.getLogger();
@@ -43,9 +45,12 @@ public class SqlWriter implements Piped<JsonNode> {
             final int tiso = Connection.TRANSACTION_SERIALIZABLE;
             connection.setTransactionIsolation(tiso);
 
-            final String getSeqStatement_str =
-                "SELECT LAST_SEQ FROM COUCHDB_REPLICATION;";
-            getSeqStatement = connection.prepareStatement(getSeqStatement_str);
+            getSeqStatement = connection.prepareStatement
+                ("SELECT LAST_SEQ FROM COUCHDB_REPLICATION;");
+            updateSeqStatement = connection.prepareStatement
+                ("UPDATE COUCHDB_REPLICATION SET LAST_SEQ = ?;");
+            insertSeqStatement = connection.prepareStatement
+                ("INSERT INTO COUCHDB_REPLICATION (LAST_SEQ) VALUES (?);");
 
             seq = getSeq();
         } catch (SQLException e) {
@@ -76,17 +81,19 @@ public class SqlWriter implements Piped<JsonNode> {
     /* Receive a single transformed JSON document, and update it in
      * the database. */
     @Override
-    public void send(JsonNode input) {
+    public void send(TransformedChange input) {
+        JsonNode json = input.getResult();
         try {
             /* We do this in three steps:
              * 1. Clear out dimension table entries, if any
              * 2. UPDATE or INSERT the target table.
              * 3. Insert to the dimension table, if any.
              */
-            final JsonNode dimensions = input.get("dimensions");
+            final JsonNode dimensions = json.get("dimensions");
             deleteDimensionTables(dimensions);
-            upsertTargetTable(input);
+            upsertTargetTable(json);
             insertDimensionTables(dimensions);
+            updateSequence(input.getRow().getSeq());
             connection.commit();
         } catch (SQLException e) {
             logger.fatal("Database error writing/updating data.", e);
@@ -107,7 +114,6 @@ public class SqlWriter implements Piped<JsonNode> {
                 makeDeleteStatement(table, key_column, key_value);
             stmt.execute();
         }
-        
     }
 
     private void insertDimensionTables(JsonNode dimensions)
@@ -141,7 +147,21 @@ public class SqlWriter implements Piped<JsonNode> {
         final PreparedStatement insertStmt = makeInsertStatement(table, row);
         insertStmt.execute();
     }
-       
+
+    /* Update the COUCHDB_REPLICATION table with the latest sequence. */
+    private void updateSequence(String seq) throws SQLException {
+        updateSeqStatement.setString(1, seq);
+        int rows = updateSeqStatement.executeUpdate();
+        if (rows > 1) {
+            throw new SQLException
+                ("COUCHDB_REPLICATION table has more than 1 row!");
+        } else if (rows == 0) {
+            return;
+        }
+        /* rows == 1, do insert. */
+        insertSeqStatement.setString(1, seq);
+        insertSeqStatement.execute();
+    }
     
     /* Returns a prepared statement, with parameters already
      * populated, that deletes the row from the given table where the

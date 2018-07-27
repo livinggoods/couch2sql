@@ -1,20 +1,25 @@
 package com.living_goods.couch2sql;
 
-import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import java.lang.Thread;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.stream.Collectors;
+import org.hamcrest.collection.IsIterableContainingInAnyOrder;
+import org.junit.BeforeClass;
+import org.junit.ClassRule;
+import org.junit.Test;
+import org.lightcouch.ChangesResult.Row;
+import org.lightcouch.CouchDbClient;
+import org.lightcouch.Response;
 import org.testcontainers.containers.FixedHostPortGenericContainer;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.Wait;
-import org.lightcouch.CouchDbClient;
 
+import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.assertArrayEquals;
-
-import org.junit.Test;
-import org.junit.ClassRule;
-import org.junit.BeforeClass;
-import java.lang.Thread;
-import java.util.ArrayList;
 
 /**
  * Unit test for CouchReader.
@@ -29,22 +34,31 @@ public class CouchReaderTest {
         .waitingFor(Wait.forHttp("/")
                     .forStatusCode(200));
 
-    private static ArrayList<JsonElement> testData;
+    private static LinkedList<JsonObject> testData;
 
     @BeforeClass
     public static void beforeClass() {
         /* Come up with some test data & stuff it in the DB. */
-        final int TEST_SIZE = 450; /* At least a few pages */
-        testData = new ArrayList<JsonElement>(TEST_SIZE);
-        for (int i = 0; i < TEST_SIZE; i ++) {
+        final int INSERT_SIZE = 50;
+        final int DELETE_SIZE = 5;
+        testData = new LinkedList<JsonObject>();
+        for (int i = 0; i < INSERT_SIZE; i ++) {
             JsonObject o = new JsonObject();
             o.addProperty("_id", String.valueOf(i));
             o.addProperty("ordinal", i);
             testData.add(o);
         }
+
         CouchDbClient client = new CouchDbClient();
-        for (JsonElement o : testData) {
-            client.save(o);
+        for (JsonObject o : testData) {
+            Response r = client.save(o);
+            o.addProperty("_rev", r.getRev());
+        }
+        for (JsonObject o : testData.subList(0, DELETE_SIZE)) {
+            Response r = client.remove(o);
+            o.addProperty("_deleted", true);
+            o.addProperty("_rev", r.getRev());
+            o.remove("ordinal");
         }
     }
 
@@ -84,12 +98,12 @@ public class CouchReaderTest {
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
-        ArrayList<JsonObject> sent = p.getSent();
-        for (int i = 0; i < testData.size(); i ++) {
-            JsonObject fromCouch = sent.get(i);
-            assertTrue(fromCouch.has("_rev"));
-            fromCouch.remove("_rev");
-        }
-        assertArrayEquals(testData.toArray(), sent.toArray());
+        JsonObject[] sent = (JsonObject[])
+            p.getSent()
+            .stream()
+            .map(elem -> ((Row)elem).getDoc())
+            .toArray(JsonObject[]::new);
+        assertThat(testData,
+                   IsIterableContainingInAnyOrder.containsInAnyOrder(sent));
     }
 }
