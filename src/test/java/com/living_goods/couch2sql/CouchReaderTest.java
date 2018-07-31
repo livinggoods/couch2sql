@@ -7,7 +7,6 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.stream.Collectors;
-import org.hamcrest.collection.IsIterableContainingInAnyOrder;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
@@ -18,8 +17,8 @@ import org.testcontainers.containers.FixedHostPortGenericContainer;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.Wait;
 
-import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Unit test for CouchReader.
@@ -103,7 +102,7 @@ public class CouchReaderTest {
             .stream()
             .map(elem -> ((Row)elem).getDoc())
             .toArray(JsonObject[]::new);
-        assertThat(testData,
-                   IsIterableContainingInAnyOrder.containsInAnyOrder(sent));
+        assertThat(sent)
+            .containsExactlyInAnyOrderElementsOf(testData);
     }
 }

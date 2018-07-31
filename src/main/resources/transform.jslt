@@ -1,0 +1,174 @@
+def parse_epoch(epoch)
+  if ($epoch == "") null
+  else
+    format-time(number($epoch) / 1000, "yyyy-MM-dd HH:mm:ss.SSS")
+
+def parse_yyyymmdd_or_yyyymmmdd(string)
+  // Annoyingly we have date_of_birth, a critical field, published
+  // in multiple date formats.
+  if ($string == "" or $string == null) null
+  else
+    let result = 
+      format-time(parse-time($string, "yyyy-MM-dd",
+                             parse-time($string, "yyyyMMdd",
+                                        parse-time($string, "yyyy-MMM-dd",
+                                                   null))),
+                  "yyyy-MM-dd")
+    if ($result == null)
+      error(join(["Cannot parse date '", $string, "'"], ""))
+    else $result
+    
+def parse_ddmmyyyy_or_yyyymmdd(string)
+  // Even more annoyingly, date_of_graduation can be yyyy-mm-dd or
+  // mm/dd/yyyy. Pray we don't encountyr dd/mm/yyyy.....
+  if ($string == "" or $string == null) null
+  else
+    let result = 
+      format-time(parse-time($string, "yyyy-MM-dd",
+                             parse-time($string, "yyyyMMdd",
+                                        parse-time($string, "mm/dd/yyyy",
+                                                   null))),
+                  "yyyy-MM-dd")
+    if ($result == null)
+      error(join(["Cannot parse date '", $string, "'"], ""))
+    else $result
+    
+def confirm_identical(array)
+  // Strips out null or "" then confirms that remaining items are
+  // all equal. Returns the unique item.
+
+  // There is probably a more concise recursive version of this.
+  let unique = [
+    
+    for ({for ($array) if (is-string(.)) . else "" : if (. != "") . })
+    .key
+  ]
+  if (size($unique) == 1) $unique[0]
+    else if (size($unique) == 0) null
+    else error("Items are not unique")
+
+def parse_string(string)
+  if ($string == "") null else $string
+
+def parse_bool(string)
+  if (contains($string, ["true", "yes", true])) true
+    else if (contains($string, ["false", "no", false])) false
+    else if (contains($string, ["", null])) null
+    else error(join(["Unknown boolean value '", $string, "'"], ""))
+
+def parse_phone(string)
+  // Check that this starts with a country code, if not add it.
+  if ($string == "" or $string == null) null
+    else if (starts-with($string, "+")) $string
+    else if (starts-with($string, "254")) join(["+", $string], "")
+    else if (starts-with($string, "256")) join(["+", $string], "")
+    else error(join(["Unknown phone number '", $string, "'"], ""))
+            
+if (.type == "person")
+    {
+      "table": "PERSON",
+      "row": {
+        "ID": ._id,
+        "REV": ._rev,
+        "NAME": parse_string(.name),
+        "FIRST_NAME": parse_string(.first_name),
+        "LAST_NAME": parse_string(.last_name),
+        "COMMON_NAME": parse_string(.common_name),
+        "DISPLAY_NAME": parse_string(.display_name),
+        "NOTES": parse_string(.notes),
+        "SEX": parse_string(lowercase(.sex)),
+        "PHONE": parse_phone(.phone),
+        "ALTERNATE_PHONE": parse_string(.alternate_phone),
+        "PHONE_OWNER": parse_string(.phone_owner),
+        "PARENT": parse_string(.parent._id),
+        "ROLE": parse_string(.role),
+        "REPORTED_DATE": parse_epoch(.reported_date),
+        "EXTERNAL_ID": parse_string(.external_id),
+        "FACILITY_ID": parse_string(.facility_id),
+        "PATIENT_ID": parse_string(.patient_id),
+        "LINK_FACILITY": parse_string(.link_facility),
+        "COHORT_NUMBER": parse_string(.cohort_number),
+        "DATE_OF_GRADUATION":
+          parse_ddmmyyyy_or_yyyymmdd(.date_of_graduation),
+        // We ignore all the other dob fields in favor of this one.
+        "DATE_OF_BIRTH": parse_yyyymmdd_or_yyyymmmdd(.date_of_birth),
+        "PREGNANT_AT_REGISTRATION": parse_bool(.pregnant_at_registration),
+        "FP_ELIGIBLE": parse_bool(.pregnant_at_registration),
+        "DELIVERED_IN_FACILITY": parse_bool(.delivered_in_facility),
+        "EXCLUSIVELY_BREASTFED": parse_bool(.exclusively_breastfed),
+        "SLEPT_UNDER_TREATED_NET": parse_bool(.slept_under_treated_net),
+        "RELATIONSHIP_TO_PRIMARY_CAREGIVER": confirm_identical(
+          [parse_string(.relationship_to_primary_caregiver),
+           parse_string(.relationship_primary_caregiver)]),
+        "RELATIONSHIP_PC_OTHER": parse_string(.relationship_pc_other),
+        "CANT_PAY_NOW": parse_bool(.cant_pay_now),
+        "FP_G_EDD": parse_string(.fp_screening.g_edd_8601),
+        "FP_G_LMP_METHOD": parse_string(.fp_screening.g_lmp_method),
+        "FP_G_LMP_APPROX": parse_string(.fp_screening.g_lmp_approx),
+        "FP_CURRENT_METHOD": parse_string(.fp_screening.current_method),
+        "FP_WHY_STOP": parse_string(.fp_screening.why_stop),
+        "FP_DAYS_SINCE_LMP": parse_string(.fp_screening.days_since_lmp),
+        "FP_G_LMP_CALENDAR": parse_string(.fp_screening.g_lmp_calendar),
+        "FP_BREASTFEEDING": parse_bool(.fp_screening.breastfeeding),
+        "FP_NEW_FP_METHOD": parse_string(.fp_screening.new_fp_method),
+        "FP_TAKE_ON_SWITCH": parse_bool(.fp_screening.take_on_switch),
+        "FP_USED_MODERN_FP": parse_bool(.fp_screening.used_modern_fp),
+        "FP_USING_MODERN_FP": parse_bool(.fp_screening.using_modern_fp),
+        "FP_IN_THE_HOUSEHOLD": parse_bool(.fp_screening.in_the_household),
+        "FP_BREASTFEEDING_DURATION":
+          parse_string(.fp_screening.breastfeeding_duration),
+        "FP_SPOUSE_INCLUDED_HES":
+          parse_bool(.fp_screening.spouse_included_hes),
+        "FP_MOUST_RECENT_METHOD":
+          parse_string(.fp_screening.most_recent_method),
+        "FP_PREGNANCY_TEST": parse_string(.fp_screening.pregnancy_test),
+        "FP_CONFIRMED_PREGNANCY":
+          parse_bool(.fp_screening.confirmed_pregnancy),
+        "FP_METHOD_ADMINISTERED":
+          confirm_identical([.fp_screening.g_fp_method_administered,
+                             .fp_method_administered]),
+        "LMP_DATE": confirm_identical([.fp_screening.g_lmp_date_8601,
+                                       .lmp_date]),
+        "ON_PILL": parse_bool(.on_pill),
+        "ON_INJECTION": parse_bool(.on_injection),
+        "NEWLY_ON_LAM": parse_bool(.newly_on_lam),
+        "NEWLY_ON_PILL": parse_bool(.newly_on_pill),
+        "NEWLY_ON_INJECTION": parse_bool(.newly_on_injection),
+        "ELIGIBLE_WOMAN": parse_bool(.eligible_woman),
+        "PARTNER_REFUSE": parse_bool(.partner_refuse),
+        "UNPROTECTED_SEX":
+          confirm_identical([.fp_screening.unprotected_sex,
+                             .unprotected_sex]),
+        "HAS_RISK_FACTORS": parse_bool(.has_risk_factors),
+        "IS_REFERRAL_CASE": parse_bool(.is_referral_case),
+        "FEAR_SIDE_EFFECTS": parse_bool(.fear_side_effects),
+        "REASON_NOT_SWITCH":
+          confirm_identical([.reason_not_switch,
+                             .fp_screening.reason_not_switch]),
+        "NEED_MORE_INFORMATION": parse_bool(.need_more_information),
+        "MOTHER_ATTENDED_ANC": parse_bool(.mother_attended_anc),
+        "COMMUNITY_UNIT": parse_string(.community_unit),
+        "MARITAL_STATUS": parse_string(.marital_status),
+        "IS_IN_EMNCH_PILOT": parse_bool(.is_in_emnch_pilot),
+        "IS_IN_DISPERSIBLE_AMOXICILLIN_PILOT":
+          parse_bool(.is_in_dispersible_amoxicillin_pilot),
+        "IS_IN_ECD_PILOT": parse_bool(.is_in_ecd_pilot),
+        "IS_IN_RBF_PILOT": parse_bool(.is_in_rbf_pilot),
+        "IS_IN_CDBS_PILOT": parse_bool(.in_cdbs_pilot),
+        "IS_IN_FP_PILOT": parse_bool(.is_in_fp_pilot),
+        "MOTHER_HIV_STATUS": parse_string(.mother_hiv_status),
+        "TOTAL_SCORE": parse_string(.total_score),
+        "NATIONAL_ID_NUMBER": parse_string(.national_id_number)
+      },
+      "dimensions": [ 
+        {
+          "table": "PERSON_FP_RISK_FACTORS",
+          "key_column": "PERSON_ID",
+          "key_value": ._id,
+          "rows": [for (split(parse_string(.fp_screening.risk_factors), " "))
+                   { "RISK_FACTOR": . } ]
+        }
+      ]
+    }
+else
+  "ERROR"
