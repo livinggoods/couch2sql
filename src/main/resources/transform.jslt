@@ -93,7 +93,7 @@ if (.type == "person")
         // We ignore all the other dob fields in favor of this one.
         "DATE_OF_BIRTH": parse_yyyymmdd_or_yyyymmmdd(.date_of_birth),
         "PREGNANT_AT_REGISTRATION": parse_bool(.pregnant_at_registration),
-        "FP_ELIGIBLE": parse_bool(.pregnant_at_registration),
+        "FP_ELIGIBLE": parse_bool(.fp_eligible),
         "DELIVERED_IN_FACILITY": parse_bool(.delivered_in_facility),
         "EXCLUSIVELY_BREASTFED": parse_bool(.exclusively_breastfed),
         "SLEPT_UNDER_TREATED_NET": parse_bool(.slept_under_treated_net),
