@@ -19,9 +19,9 @@ import java.util.stream.Collectors;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
 import javax.sql.DataSource;
+import org.apache.commons.dbcp2.BasicDataSourceFactory;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.osjava.sj.loader.convert.SJDataSourceConverter;
 
 /* Class which updates SQL Server with the resulting data. */
 public class SqlWriter implements Piped<TransformedChange> {
@@ -43,8 +43,9 @@ public class SqlWriter implements Piped<TransformedChange> {
            get a DataSource, but I couldn't find a JNDI implementation
            that I liked (wanted to load the data source properties
            from the classpath). Instead we find the properties file
-           ourselves, and then use Simple-JNDI to convert the
-           properties file into a DataSource.
+           ourselves, and then use the Apache DBCP2
+           BasicDataSourceFactory to convert the properties file into
+           a DataSource.
 
            I have opened an enhancement request for Simple-JNDI to
            support loading properties from the classpath, after which
@@ -53,24 +54,30 @@ public class SqlWriter implements Piped<TransformedChange> {
            https://github.com/h-thurow/Simple-JNDI/issues/9
         */
         try {
+            final Properties properties = new Properties();
             try (InputStream configStream =
                  getClass().getResourceAsStream("/" + DATA_SOURCE_CONTEXT +
                                                 ".properties")) {
-                final Properties properties = new Properties();
                 properties.load(configStream);
-                final SJDataSourceConverter loader =
-                    new SJDataSourceConverter();
-                final DataSource ds = (DataSource) 
-                    loader.convert(properties,
-                                   properties.getProperty("type"));
-                connection = ds.getConnection();
             } catch (IOException e) {
                 String msg = "Could not read SQL Server configuration from the classpath: "
                     + DATA_SOURCE_CONTEXT;
+                 logger.fatal(msg, e);
+                 throw new IllegalStateException(msg, e);
+            }
+            DataSource dataSource;
+            try {
+                final BasicDataSourceFactory loader =
+                    new BasicDataSourceFactory();
+                dataSource = loader.createDataSource(properties);
+            } catch (Exception e) {
+                /* Bad API just throws Exception. */
+                String msg = "Could not create SQL Server DataSource.";
                 logger.fatal(msg, e);
                 throw new IllegalStateException(msg, e);
             }
 
+            connection = dataSource.getConnection();
             connection.setAutoCommit(false);
             final int tiso = Connection.TRANSACTION_SERIALIZABLE;
             connection.setTransactionIsolation(tiso);
