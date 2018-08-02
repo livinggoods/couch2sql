@@ -3,6 +3,8 @@ package com.living_goods.couch2sql;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.commons.collections4.map.MultiKeyMap;
+import java.io.InputStream;
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -12,12 +14,14 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.ListIterator;
+import java.util.Properties;
 import java.util.stream.Collectors;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
 import javax.sql.DataSource;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.osjava.sj.loader.convert.SJDataSourceConverter;
 
 /* Class which updates SQL Server with the resulting data. */
 public class SqlWriter implements Piped<TransformedChange> {
@@ -30,17 +34,43 @@ public class SqlWriter implements Piped<TransformedChange> {
     private MultiKeyMap insertStmtCache;
     private static final Logger logger = LogManager.getLogger();
 
+    public static final String DATA_SOURCE_CONTEXT = "sqldb";
+    
     SqlWriter() {
+        /* Load the SQL database connection.
+
+           This is a bit of a hack. The right way is to use JNDI to
+           get a DataSource, but I couldn't find a JNDI implementation
+           that I liked (wanted to load the data source properties
+           from the classpath). Instead we find the properties file
+           ourselves, and then use Simple-JNDI to convert the
+           properties file into a DataSource.
+
+           I have opened an enhancement request for Simple-JNDI to
+           support loading properties from the classpath, after which
+           the lookup could be done simply with
+           InitialContext.lookup().
+           https://github.com/h-thurow/Simple-JNDI/issues/9
+        */
         try {
-            try {
-                final InitialContext ctxt = new InitialContext();
-                final DataSource ds =
-                    (DataSource) ctxt.lookup("application/ds/sqldb");
+            try (InputStream configStream =
+                 getClass().getResourceAsStream("/" + DATA_SOURCE_CONTEXT +
+                                                ".properties")) {
+                final Properties properties = new Properties();
+                properties.load(configStream);
+                final SJDataSourceConverter loader =
+                    new SJDataSourceConverter();
+                final DataSource ds = (DataSource) 
+                    loader.convert(properties,
+                                   properties.getProperty("type"));
                 connection = ds.getConnection();
-            } catch (NamingException e) {
-                logger.fatal("Error finding JDBC datasource", e);
-                throw new IllegalStateException(e);
+            } catch (IOException e) {
+                String msg = "Could not read SQL Server configuration from the classpath: "
+                    + DATA_SOURCE_CONTEXT;
+                logger.fatal(msg, e);
+                throw new IllegalStateException(msg, e);
             }
+
             connection.setAutoCommit(false);
             final int tiso = Connection.TRANSACTION_SERIALIZABLE;
             connection.setTransactionIsolation(tiso);
