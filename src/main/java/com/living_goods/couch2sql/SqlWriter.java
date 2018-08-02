@@ -3,8 +3,6 @@ package com.living_goods.couch2sql;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.commons.collections4.map.MultiKeyMap;
-import java.io.InputStream;
-import java.io.IOException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -14,12 +12,9 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.ListIterator;
-import java.util.Properties;
 import java.util.stream.Collectors;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
-import javax.sql.DataSource;
-import org.apache.commons.dbcp2.BasicDataSourceFactory;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -37,51 +32,8 @@ public class SqlWriter implements Piped<TransformedChange> {
     public static final String DATA_SOURCE_CONTEXT = "sqldb";
     
     SqlWriter() {
-        /* Load the SQL database connection.
-
-           This is a bit of a hack. The right way is to use JNDI to
-           get a DataSource, but I couldn't find a JNDI implementation
-           that I liked (wanted to load the data source properties
-           from the classpath). Instead we find the properties file
-           ourselves, and then use the Apache DBCP2
-           BasicDataSourceFactory to convert the properties file into
-           a DataSource.
-
-           I have opened an enhancement request for Simple-JNDI to
-           support loading properties from the classpath, after which
-           the lookup could be done simply with
-           InitialContext.lookup().
-           https://github.com/h-thurow/Simple-JNDI/issues/9
-        */
+        connection = SqlConnection.getSqlConnection();
         try {
-            final Properties properties = new Properties();
-            try (InputStream configStream =
-                 getClass().getResourceAsStream("/" + DATA_SOURCE_CONTEXT +
-                                                ".properties")) {
-                properties.load(configStream);
-            } catch (IOException e) {
-                String msg = "Could not read SQL Server configuration from the classpath: "
-                    + DATA_SOURCE_CONTEXT;
-                 logger.fatal(msg, e);
-                 throw new IllegalStateException(msg, e);
-            }
-            DataSource dataSource;
-            try {
-                final BasicDataSourceFactory loader =
-                    new BasicDataSourceFactory();
-                dataSource = loader.createDataSource(properties);
-            } catch (Exception e) {
-                /* Bad API just throws Exception. */
-                String msg = "Could not create SQL Server DataSource.";
-                logger.fatal(msg, e);
-                throw new IllegalStateException(msg, e);
-            }
-
-            connection = dataSource.getConnection();
-            connection.setAutoCommit(false);
-            final int tiso = Connection.TRANSACTION_SERIALIZABLE;
-            connection.setTransactionIsolation(tiso);
-
             getSeqStatement = connection.prepareStatement
                 ("SELECT LAST_SEQ FROM COUCHDB_REPLICATION;");
             updateSeqStatement = connection.prepareStatement
@@ -91,7 +43,7 @@ public class SqlWriter implements Piped<TransformedChange> {
 
             seq = getSeq();
         } catch (SQLException e) {
-            logger.fatal("Error setting up SQL Server connection", e);
+            logger.fatal("Error setting up prepared statements", e);
             throw new IllegalStateException(e);
         }
 
@@ -99,10 +51,15 @@ public class SqlWriter implements Piped<TransformedChange> {
         insertStmtCache = new MultiKeyMap();
     }
 
-    /* Looks up the current last sequence number in the DB and returns it. */
+    /* Looks up the current last sequence number in the DB and returns
+     * it. Retuns null if there is no sequence number in the DB. */
     private String getSeq() throws SQLException {
         final ResultSet rs = getSeqStatement.executeQuery();
-        return rs.getString("LAST_SEQ");
+        if (!rs.next()) {
+            return null;
+        } else {
+            return rs.getString("LAST_SEQ");
+        }
     }
     
     @Override
@@ -198,6 +155,7 @@ public class SqlWriter implements Piped<TransformedChange> {
         /* rows == 1, do insert. */
         insertSeqStatement.setString(1, seq);
         insertSeqStatement.execute();
+        this.seq = seq;
     }
     
     /* Returns a prepared statement, with parameters already

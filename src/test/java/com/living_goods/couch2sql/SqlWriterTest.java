@@ -39,8 +39,11 @@ public class SqlWriterTest {
         Connection connection = mssqlserver.createConnection("");
         Statement statement = connection.createStatement();
         statement.execute("CREATE DATABASE JUNIT;");
-
-        /* TODO: Set up the schema */
+        /* Connection should be on autocommit, but why not? */
+        connection.commit();
+        
+        SchemaWriter sw = new SchemaWriter();
+        sw.writeSchema();
     }
     
     @Test
