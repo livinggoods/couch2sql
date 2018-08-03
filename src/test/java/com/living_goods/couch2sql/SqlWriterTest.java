@@ -178,12 +178,10 @@ public class SqlWriterTest {
 
         Connection connection = getConnection();
         Statement statement = connection.createStatement();
-        statement.execute("SELECT * FROM CLINIC");
-        ResultSet rs = statement.getResultSet();
+        ResultSet rs = statement.executeQuery("SELECT * FROM CLINIC");
         assertTrue(rs.next());
         compareJsonToRow(rs, row);
         assertFalse(rs.next());
-        assertFalse(statement.getMoreResults());
         logger.debug("Exiting testInsert()");
     }
 
@@ -215,12 +213,10 @@ public class SqlWriterTest {
 
         Connection connection = getConnection();
         Statement statement = connection.createStatement();
-        statement.execute("SELECT * FROM HEALTH_CENTER");
-        ResultSet rs = statement.getResultSet();
+        ResultSet rs = statement.executeQuery("SELECT * FROM HEALTH_CENTER");
         assertTrue(rs.next());
         compareJsonToRow(rs, row);
         assertFalse(rs.next());
-        assertFalse(statement.getMoreResults());
         logger.debug("Exiting testUpdate()");
     }
 
@@ -263,8 +259,8 @@ public class SqlWriterTest {
 
         Connection connection = getConnection();
         Statement statement = connection.createStatement();
-        statement.execute("SELECT * FROM PERSON_FP_RISK_FACTORS");
-        ResultSet rs = statement.getResultSet();
+        ResultSet rs = statement.executeQuery
+            ("SELECT * FROM PERSON_FP_RISK_FACTORS");
         Set<String> sqlFactors = new HashSet<String>();
         assertTrue(rs.next());
         assertEquals(rs.getString("PERSON_ID"), "tdi");
@@ -273,7 +269,6 @@ public class SqlWriterTest {
         assertEquals(rs.getString("PERSON_ID"), "tdi");
         sqlFactors.add(rs.getString("RISK_FACTOR"));
         assertFalse(rs.next());
-        assertFalse(statement.getMoreResults());
         assertThat(sqlFactors)
             .containsExactlyInAnyOrder("cute", "partners");
                        
@@ -284,29 +279,37 @@ public class SqlWriterTest {
     public synchronized void testDimensionDelete() throws SQLException {
         logger.debug("Entering testDimensionInsert()");
         /* Pass a record in, and check out the resulting database state. */
-        try (SqlWriter sw = new SqlWriter()) {
+        try (SqlWriter sw = new SqlWriter();
+             Connection connection = getConnection();
+             ) {
             ObjectNode doc = dimensionDoc("tdd", "cute", "partners");
             Row couchRow = new RowMock("tdd1", null);
             TransformedChange tc = new TransformedChange(couchRow, doc);
             sw.send(tc);
             assertEquals(sw.getSeq(), "tdd1");
-
+            
+            Statement statement = connection.createStatement();
+            ResultSet rs = statement.executeQuery
+                ("SELECT COUNT(*) FROM PERSON_FP_RISK_FACTORS " +
+                 "WHERE PERSON_ID = 'tdd';");
+            assertTrue(rs.next());
+            assertEquals(rs.getInt(1), 2);
+            assertFalse(rs.next());
+            
             doc = dimensionDoc("tdd");
             couchRow = new RowMock("tdd2", null);
             tc = new TransformedChange(couchRow, doc);
             sw.send(tc);
             assertEquals(sw.getSeq(), "tdd2");
+
+            rs = statement.executeQuery
+                ("SELECT COUNT(*) FROM PERSON_FP_RISK_FACTORS " +
+                 "WHERE PERSON_ID = 'tdd';");
+            assertTrue(rs.next());
+            assertEquals(rs.getInt(1), 0);
+            assertFalse(rs.next());
         }
 
-        Connection connection = getConnection();
-        Statement statement = connection.createStatement();
-        statement.execute("SELECT COUNT(*) FROM PERSON_FP_RISK_FACTORS " +
-                          "WHERE PERSON_ID = 'tdd';");
-        ResultSet rs = statement.getResultSet();
-        assertTrue(rs.next());
-        assertEquals(rs.getInt(1), 0);
-        assertFalse(rs.next());
-        assertFalse(statement.getMoreResults());
         logger.debug("Exiting testDimensionInsert()");
     }
     
