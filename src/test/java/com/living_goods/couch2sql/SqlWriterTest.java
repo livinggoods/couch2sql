@@ -224,14 +224,11 @@ public class SqlWriterTest {
         logger.debug("Exiting testUpdate()");
     }
 
-    @Test
-    public synchronized void testDimensionInsert() throws SQLException {
-        logger.debug("Entering testDimensionInsert()");
-        /* Pass a record in, and check out the resulting database state. */
+    private ObjectNode dimensionDoc(String id, String... values) {
         ObjectNode doc = new ObjectNode(JsonNodeFactory.instance);
         doc.put("table", "PERSON");
         ObjectNode row = new ObjectNode(JsonNodeFactory.instance);
-        row.put("ID", "abc");
+        row.put("ID", id);
         row.put("REV", "Should be a UUID");
         row.put("NAME", "Dean Contreras");
         doc.set("row", row);
@@ -239,22 +236,29 @@ public class SqlWriterTest {
         ObjectNode dimension = new ObjectNode(JsonNodeFactory.instance);
         dimension.put("table", "PERSON_FP_RISK_FACTORS");
         dimension.put("key_column", "PERSON_ID");
-        dimension.put("key_value", "abc");
-        ObjectNode dimensionRow1 = new ObjectNode(JsonNodeFactory.instance);
-        dimensionRow1.put("RISK_FACTOR", "cute");
-        ObjectNode dimensionRow2 = new ObjectNode(JsonNodeFactory.instance);
-        dimensionRow2.put("RISK_FACTOR", "partners");
+        dimension.put("key_value", id);
         ArrayNode dimensionRows = new ArrayNode(JsonNodeFactory.instance);
-        dimensionRows.add(dimensionRow1);
-        dimensionRows.add(dimensionRow2);
+        for (String v : values) {
+            ObjectNode dimensionRow = new ObjectNode(JsonNodeFactory.instance);
+            dimensionRow.put("RISK_FACTOR", v);
+            dimensionRows.add(dimensionRow);
+        }
         dimension.put("rows", dimensionRows);
         dimensions.add(dimension);
         doc.put("dimensions", dimensions);
-        Row couchRow = new RowMock("1234abcd", null);
+        return doc;
+    }
+    
+    @Test
+    public synchronized void testDimensionInsert() throws SQLException {
+        logger.debug("Entering testDimensionInsert()");
+        /* Pass a record in, and check out the resulting database state. */
+        ObjectNode doc = dimensionDoc("tdi", "cute", "partners");
+        Row couchRow = new RowMock("tdi", null);
         TransformedChange tc = new TransformedChange(couchRow, doc);
         try (SqlWriter sw = new SqlWriter()) {
             sw.send(tc);
-            assertEquals(sw.getSeq(), "1234abcd");
+            assertEquals(sw.getSeq(), "tdi");
         }
 
         Connection connection = getConnection();
@@ -263,10 +267,10 @@ public class SqlWriterTest {
         ResultSet rs = statement.getResultSet();
         Set<String> sqlFactors = new HashSet<String>();
         assertTrue(rs.next());
-        assertEquals(rs.getString("PERSON_ID"), "abc");
+        assertEquals(rs.getString("PERSON_ID"), "tdi");
         sqlFactors.add(rs.getString("RISK_FACTOR"));
         assertTrue(rs.next());
-        assertEquals(rs.getString("PERSON_ID"), "abc");
+        assertEquals(rs.getString("PERSON_ID"), "tdi");
         sqlFactors.add(rs.getString("RISK_FACTOR"));
         assertFalse(rs.next());
         assertFalse(statement.getMoreResults());
@@ -275,4 +279,35 @@ public class SqlWriterTest {
                        
         logger.debug("Exiting testDimensionInsert()");
     }
+
+    @Test
+    public synchronized void testDimensionDelete() throws SQLException {
+        logger.debug("Entering testDimensionInsert()");
+        /* Pass a record in, and check out the resulting database state. */
+        try (SqlWriter sw = new SqlWriter()) {
+            ObjectNode doc = dimensionDoc("tdd", "cute", "partners");
+            Row couchRow = new RowMock("tdd1", null);
+            TransformedChange tc = new TransformedChange(couchRow, doc);
+            sw.send(tc);
+            assertEquals(sw.getSeq(), "tdd1");
+
+            doc = dimensionDoc("tdd");
+            couchRow = new RowMock("tdd2", null);
+            tc = new TransformedChange(couchRow, doc);
+            sw.send(tc);
+            assertEquals(sw.getSeq(), "tdd2");
+        }
+
+        Connection connection = getConnection();
+        Statement statement = connection.createStatement();
+        statement.execute("SELECT COUNT(*) FROM PERSON_FP_RISK_FACTORS " +
+                          "WHERE PERSON_ID = 'tdd';");
+        ResultSet rs = statement.getResultSet();
+        assertTrue(rs.next());
+        assertEquals(rs.getInt(1), 0);
+        assertFalse(rs.next());
+        assertFalse(statement.getMoreResults());
+        logger.debug("Exiting testDimensionInsert()");
+    }
+    
 }
