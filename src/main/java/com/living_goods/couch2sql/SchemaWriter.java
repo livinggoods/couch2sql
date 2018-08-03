@@ -93,6 +93,11 @@ public class SchemaWriter {
         }
     }
 
+    public void close() throws SQLException {
+        connection.close();
+        connection = null;
+    }
+    
     public static void main(String[] argv) throws SQLException {
         SchemaWriter sw = new SchemaWriter();
         sw.writeSchema();

@@ -32,16 +32,18 @@ public class SqlWriter implements Piped<TransformedChange> {
     public static final String DATA_SOURCE_CONTEXT = "sqldb";
     
     SqlWriter() {
+        logger.debug("SqlWriter constructor");
         connection = SqlConnection.getSqlConnection();
         try {
             getSeqStatement = connection.prepareStatement
                 ("SELECT LAST_SEQ FROM COUCHDB_REPLICATION;");
             updateSeqStatement = connection.prepareStatement
-                ("UPDATE COUCHDB_REPLICATION SET LAST_SEQ = ?;");
+                ("UPDATE COUCHDB_REPLICATION SET LAST_SEQ = ? " +
+                 "OUTPUT deleted.LAST_SEQ;");
             insertSeqStatement = connection.prepareStatement
                 ("INSERT INTO COUCHDB_REPLICATION (LAST_SEQ) VALUES (?);");
 
-            seq = getSeq();
+            seq = getSeqFromDB();
         } catch (SQLException e) {
             logger.fatal("Error setting up prepared statements", e);
             throw new IllegalStateException(e);
@@ -53,7 +55,7 @@ public class SqlWriter implements Piped<TransformedChange> {
 
     /* Looks up the current last sequence number in the DB and returns
      * it. Retuns null if there is no sequence number in the DB. */
-    private String getSeq() throws SQLException {
+    private String getSeqFromDB() throws SQLException {
         final ResultSet rs = getSeqStatement.executeQuery();
         if (!rs.next()) {
             return null;
@@ -61,10 +63,16 @@ public class SqlWriter implements Piped<TransformedChange> {
             return rs.getString("LAST_SEQ");
         }
     }
+
+    /* Returns the last CouchDB sequence number seen in this database. */
+    public String getSeq() {
+        return seq;
+    }
     
     @Override
     public void close() {
         try {
+            logger.debug("SqlWriter closed");
             connection.close();
         } catch (SQLException e) {
             logger.fatal("Database error closing connection", e);
@@ -76,6 +84,7 @@ public class SqlWriter implements Piped<TransformedChange> {
      * the database. */
     @Override
     public void send(TransformedChange input) {
+        /* FIXME: Need to handle record deletion! */
         JsonNode json = input.getResult();
         try {
             /* We do this in three steps:
@@ -83,6 +92,7 @@ public class SqlWriter implements Piped<TransformedChange> {
              * 2. UPDATE or INSERT the target table.
              * 3. Insert to the dimension table, if any.
              */
+            /* n.b. json.get("foobar") will return null if absent. */
             final JsonNode dimensions = json.get("dimensions");
             deleteDimensionTables(dimensions);
             upsertTargetTable(json);
@@ -99,6 +109,7 @@ public class SqlWriter implements Piped<TransformedChange> {
      * document. */
     private void deleteDimensionTables(JsonNode dimensions)
         throws SQLException {
+        if (dimensions == null) { return; }
         assert dimensions.isArray();
         for (JsonNode dimension : dimensions) {
             final String table = dimension.get("table").textValue();
@@ -112,6 +123,7 @@ public class SqlWriter implements Piped<TransformedChange> {
 
     private void insertDimensionTables(JsonNode dimensions)
         throws SQLException {
+        if (dimensions == null) { return; }
         assert dimensions.isArray();
         for (JsonNode dimension : dimensions) {
             final String table = dimension.get("table").textValue();
@@ -145,16 +157,29 @@ public class SqlWriter implements Piped<TransformedChange> {
     /* Update the COUCHDB_REPLICATION table with the latest sequence. */
     private void updateSequence(String seq) throws SQLException {
         updateSeqStatement.setString(1, seq);
-        int rows = updateSeqStatement.executeUpdate();
-        if (rows > 1) {
-            throw new SQLException
-                ("COUCHDB_REPLICATION table has more than 1 row!");
-        } else if (rows == 0) {
-            return;
+        updateSeqStatement.execute();
+        ResultSet rs = updateSeqStatement.getResultSet();
+        if (!rs.next()) {
+            /* Nothing was there, do insert. */
+            insertSeqStatement.setString(1, seq);
+            insertSeqStatement.execute();
+        } else {
+            String oldSeq = rs.getString(1);
+            if (rs.next()) {
+                throw new SQLException
+                    ("COUCHDB_REPLICATION table has more than 1 row!");
+            } else {
+                /* Double check that the previous sequence number is the
+                 * one that we updated. */
+                if (! oldSeq.equals(this.seq)) {
+                    throw new SQLException (String.format
+                        ("COUCHDB_REPLICATION updated unexpectedly " +
+                         "(concurrency issue?), saw %s " +
+                         "while updating from %s to %s",
+                         oldSeq, this.seq, seq));
+                }
+            }
         }
-        /* rows == 1, do insert. */
-        insertSeqStatement.setString(1, seq);
-        insertSeqStatement.execute();
         this.seq = seq;
     }
     
@@ -210,10 +235,11 @@ public class SqlWriter implements Piped<TransformedChange> {
                 columns.stream()
                 .map(elem -> "?")
                 .collect(Collectors.joining(","));
-            
-            rval = connection.prepareStatement
-                ("INSERT INTO \"" + table + "\" (" +
-                 columnList + ") VALUES (" + parameterList + ");");
+
+            String sql = ("INSERT INTO \"" + table + "\" (" +
+                          columnList + ") VALUES (" + parameterList + ");");
+            logger.debug("Registering query " + sql);
+            rval = connection.prepareStatement(sql);
             insertStmtCache.put(table, columns, rval);
         }
         
@@ -221,6 +247,7 @@ public class SqlWriter implements Piped<TransformedChange> {
             final int ordinal = i.nextIndex() + 1;
             final String value = i.next();
             rval.setString(ordinal, value);
+            logger.debug("Setting parameter " + ordinal + " = " + value);
         }
         return rval;
     }

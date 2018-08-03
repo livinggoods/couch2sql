@@ -15,6 +15,11 @@ public class RowMock extends Row {
         this.doc = document;
     }
 
+    RowMock() {
+        this.seq = "";
+        this.doc = new JsonObject();
+    }
+    
     @Override
     public String getSeq() {
         return seq;
