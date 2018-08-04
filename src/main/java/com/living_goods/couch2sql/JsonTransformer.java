@@ -32,17 +32,22 @@ public class JsonTransformer implements Piped<Row> {
     
     @Override
     public void send(Row input) {
-        /* Wierdly converting a String to a JsonNode can throw an
-         * IOException. */
-        JsonNode inputNode;
-        try {
-            inputNode = mapper.readTree(input.getDoc().toString());
-        } catch (IOException e) {
-            logger.fatal("Could not convert JSON document to Jackson", e);
-            throw new IllegalArgumentException(e);
+        /* Just pass through if this is a deletion. */
+        if (input.isDeleted()) {
+            target.send(new TransformedChange(input, null));
+        } else {            
+            /* Wierdly converting a String to a JsonNode can throw an
+             * IOException. */
+            JsonNode inputNode;
+            try {
+                inputNode = mapper.readTree(input.getDoc().toString());
+            } catch (IOException e) {
+                logger.fatal("Could not convert JSON document to Jackson", e);
+                throw new IllegalArgumentException(e);
+            }
+            JsonNode outputNode = transform.apply(inputNode);
+            target.send(new TransformedChange(input, outputNode));
         }
-        JsonNode outputNode = transform.apply(inputNode);
-        target.send(new TransformedChange(input, outputNode));
     }
 
     /* We have no state here so this is a no-op. */

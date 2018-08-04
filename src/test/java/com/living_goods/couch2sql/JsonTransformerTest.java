@@ -43,7 +43,7 @@ public class JsonTransformerTest {
         JsonObject fp_screening = new JsonObject();
         fp_screening.addProperty("risk_factors", "foo bar");
         testObj.add("fp_screening", fp_screening);
-        Row r = new RowMock("", testObj);
+        Row r = RowMock.make("", testObj);
         jt.send(r);
         assertSame(p.getSent().get(0).getRow(), r);
         JsonNode result = p.getSent().get(0).getResult();
@@ -76,7 +76,7 @@ public class JsonTransformerTest {
         JsonTransformer jt = new JsonTransformer(p);
         JsonObject testObj = makePerson();
         testObj.addProperty("reported_date", "1514764800000");
-        Row r = new RowMock("", testObj);
+        Row r = RowMock.make("", testObj);
         jt.send(r);
         assertEquals("2018-01-01 00:00:00.000",
                      p.getSent().get(0).getResult().get("row")
@@ -92,15 +92,15 @@ public class JsonTransformerTest {
 
         JsonObject testObj = makePerson();
         testObj.addProperty("date_of_birth", "2018-01-02");
-        jt.send(new RowMock("", testObj));
+        jt.send(RowMock.make("", testObj));
 
         testObj = makePerson();
         testObj.addProperty("date_of_birth", "20180102");
-        jt.send(new RowMock("", testObj));
+        jt.send(RowMock.make("", testObj));
 
         testObj = makePerson();
         testObj.addProperty("date_of_birth", "2018-Jan-02");
-        jt.send(new RowMock("", testObj));
+        jt.send(RowMock.make("", testObj));
 
         for (TransformedChange tc : p.getSent()) {
             assertEquals("2018-01-02",
@@ -117,15 +117,15 @@ public class JsonTransformerTest {
 
         JsonObject testObj = makePerson();
         testObj.addProperty("date_of_graduation", "2018-01-20");
-        jt.send(new RowMock("", testObj));
+        jt.send(RowMock.make("", testObj));
 
         testObj = makePerson();
         testObj.addProperty("date_of_graduation", "20180120");
-        jt.send(new RowMock("", testObj));
+        jt.send(RowMock.make("", testObj));
 
         testObj = makePerson();
         testObj.addProperty("date_of_graduation", "01/20/2018");
-        jt.send(new RowMock("", testObj));
+        jt.send(RowMock.make("", testObj));
 
         for (TransformedChange tc : p.getSent()) {
             assertEquals("2018-01-20",
@@ -143,7 +143,7 @@ public class JsonTransformerTest {
         testObj.addProperty("relationship_to_primary_caregiver", "self");
         testObj.addProperty("relationship_primary_caregiver", "self");
 
-        Row r = new RowMock("", testObj);
+        Row r = RowMock.make("", testObj);
         jt.send(r);
         assertEquals("self",
                      p.getSent().get(0).getResult().get("row")
@@ -159,7 +159,7 @@ public class JsonTransformerTest {
         testObj.addProperty("relationship_to_primary_caregiver", "daughter");
         testObj.addProperty("relationship_primary_caregiver", "son");
 
-        Row r = new RowMock("", testObj);
+        Row r = RowMock.make("", testObj);
         jt.send(r);
     }
 
@@ -178,8 +178,8 @@ public class JsonTransformerTest {
 
         /* We should get the same result as we would have gotten
          * without adding all these empty fields. */
-        jt.send(new RowMock("", testObj));
-        jt.send(new RowMock("", makePerson()));
+        jt.send(RowMock.make("", testObj));
+        jt.send(RowMock.make("", makePerson()));
         assertEquals(p.getSent().get(1).getResult(),
                      p.getSent().get(0).getResult());
     }
@@ -197,7 +197,7 @@ public class JsonTransformerTest {
         testObj.addProperty("slept_under_treated_net", "no");
         testObj.addProperty("cant_pay_now", false);
 
-        jt.send(new RowMock("", testObj));
+        jt.send(RowMock.make("", testObj));
         JsonNode row = p.getSent().get(0).getResult().get("row");
         assertEquals(BooleanNode.TRUE, row.get("PREGNANT_AT_REGISTRATION"));
         assertEquals(BooleanNode.TRUE, row.get("FP_ELIGIBLE"));
@@ -207,4 +207,14 @@ public class JsonTransformerTest {
         assertEquals(BooleanNode.FALSE, row.get("CANT_PAY_NOW"));
     }
 
+    /* Test sending a deleted document. */
+    @Test
+    public void testDeleted() {
+        PipedMock<TransformedChange> p = new PipedMock<TransformedChange>();
+        JsonTransformer jt = new JsonTransformer(p);
+        Row sentRow = RowMock.makeDeletion("", "foo");
+        jt.send(sentRow);
+        Row row = p.getSent().get(0).getRow();
+        assertSame(row, sentRow);
+    }
 }

@@ -9,15 +9,27 @@ import com.google.gson.JsonObject;
 public class RowMock extends Row {
     String seq;
     JsonObject doc;
-    
-    RowMock(String sequence, JsonObject document) {
+    String id;
+
+    private RowMock(String sequence, JsonObject document, String id) {
         this.seq = sequence;
         this.doc = document;
+        this.id = id;
     }
 
-    RowMock() {
-        this.seq = "";
-        this.doc = new JsonObject();
+    public static RowMock make(String sequence, JsonObject document) {
+        if (document == null) {
+            document = new JsonObject();
+        }
+        return new RowMock(sequence, document, null);
+    }
+
+    public static RowMock make(String sequence) {
+        return new RowMock(sequence, new JsonObject(), null);
+    }
+
+    public static RowMock makeDeletion(String sequence, String id) {
+        return new RowMock(sequence, null, id);
     }
     
     @Override
@@ -30,6 +42,18 @@ public class RowMock extends Row {
         return doc;
     }
 
+    @Override
+    public String getId() {
+        /* Only supported for deletions, currently. */
+        assert doc == null;
+        return id;
+    }
+
+    @Override
+    public boolean isDeleted() {
+        return (doc == null);
+    }
+    
     public boolean equals(Object other) {
         if (other instanceof Row) {
             Row otherRow = (Row) other;
@@ -44,9 +68,8 @@ public class RowMock extends Row {
         return false;
     }
 
-
     /* Note other methods not provided, e.g., getId, getChanges,
-     * isDeleted, etc. */
+     * etc. */
 }
 
  

@@ -47,10 +47,13 @@ public class JsonValidator implements Piped<Row> {
 
     @Override
     public void send(Row input) {
-        /* Convert JsonObject to JSONObject */
-        JSONObject jSONObject = new JSONObject(input.getDoc().toString());
-        /* Raises an exception if validation fails. */
-        schema.validate(jSONObject);
+        /* Skip if deleted. */
+        if (!input.isDeleted()) {
+            /* Convert JsonObject to JSONObject */
+            JSONObject jSONObject = new JSONObject(input.getDoc().toString());
+            /* Raises an exception if validation fails. */
+            schema.validate(jSONObject);
+        }
         
         target.send(input);
     }

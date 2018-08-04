@@ -169,7 +169,7 @@ public class SqlWriterTest {
         row.put("IMPORTED_DATE", "2018-01-01 12:00:01.0");
         row.put("REPORTED_DATE", "2018-01-01 12:00:02.0");
         doc.set("row", row);
-        Row couchRow = new RowMock("1234abcd", null);
+        Row couchRow = RowMock.make("1234abcd");
         TransformedChange tc = new TransformedChange(couchRow, doc);
         try (SqlWriter sw = new SqlWriter()) {
             sw.send(tc);
@@ -187,25 +187,25 @@ public class SqlWriterTest {
 
     @Test
     public synchronized void testUpdate() throws SQLException {
-        logger.debug("Exiting testUpdate()");
+        logger.debug("Entering testUpdate()");
         /* Send an update to a record, then check the
          * database. */
         ObjectNode doc = new ObjectNode(JsonNodeFactory.instance);
         doc.put("table", "HEALTH_CENTER");
         ObjectNode row = new ObjectNode(JsonNodeFactory.instance);
-        row.put("ID", "abc");
+        row.put("ID", "def");
         row.put("NAME", "Kathleen Berg");
         row.put("IMPORTED_DATE", "2018-01-01 12:00:01.0");
         row.put("REPORTED_DATE", "2018-01-01 12:00:02.0");
         doc.set("row", row);
-        Row couchRow = new RowMock("1", null);
+        Row couchRow = RowMock.make("1");
         TransformedChange tc = new TransformedChange(couchRow, doc);
         try (SqlWriter sw = new SqlWriter()) {
             sw.send(tc);
 
             row.put("NAME", "Penny Leon");
             row.put("REPORTED_DATE", "2018-08-01 12:00:02.0");
-            couchRow = new RowMock("2", null);
+            couchRow = RowMock.make("2");
             tc = new TransformedChange(couchRow, doc);
             sw.send(tc);
             assertEquals(sw.getSeq(), "2");
@@ -250,7 +250,7 @@ public class SqlWriterTest {
         logger.debug("Entering testDimensionInsert()");
         /* Pass a record in, and check out the resulting database state. */
         ObjectNode doc = dimensionDoc("tdi", "cute", "partners");
-        Row couchRow = new RowMock("tdi", null);
+        Row couchRow = RowMock.make("tdi");
         TransformedChange tc = new TransformedChange(couchRow, doc);
         try (SqlWriter sw = new SqlWriter()) {
             sw.send(tc);
@@ -275,6 +275,18 @@ public class SqlWriterTest {
         logger.debug("Exiting testDimensionInsert()");
     }
 
+    /* Runs the query, which should return one row with one column
+     * such that rs.getObject(1).equals(value). */
+    private void assertQueryValue(Connection connection, String query,
+                                  Object value)
+        throws SQLException{
+        Statement statement = connection.createStatement();
+        ResultSet rs = statement.executeQuery(query);
+        assertTrue(rs.next());
+        assertEquals(rs.getObject(1), value);
+        assertFalse(rs.next());
+    }
+    
     @Test
     public synchronized void testDimensionDelete() throws SQLException {
         logger.debug("Entering testDimensionInsert()");
@@ -283,34 +295,61 @@ public class SqlWriterTest {
              Connection connection = getConnection();
              ) {
             ObjectNode doc = dimensionDoc("tdd", "cute", "partners");
-            Row couchRow = new RowMock("tdd1", null);
+            Row couchRow = RowMock.make("tdd1");
             TransformedChange tc = new TransformedChange(couchRow, doc);
             sw.send(tc);
             assertEquals(sw.getSeq(), "tdd1");
-            
-            Statement statement = connection.createStatement();
-            ResultSet rs = statement.executeQuery
-                ("SELECT COUNT(*) FROM PERSON_FP_RISK_FACTORS " +
-                 "WHERE PERSON_ID = 'tdd';");
-            assertTrue(rs.next());
-            assertEquals(rs.getInt(1), 2);
-            assertFalse(rs.next());
+
+            String countQuery =
+                "SELECT COUNT(*) FROM PERSON_FP_RISK_FACTORS " +
+                "WHERE PERSON_ID = 'tdd';";
+            assertQueryValue(connection, countQuery, 2);
             
             doc = dimensionDoc("tdd");
-            couchRow = new RowMock("tdd2", null);
+            couchRow = RowMock.make("tdd2");
             tc = new TransformedChange(couchRow, doc);
             sw.send(tc);
             assertEquals(sw.getSeq(), "tdd2");
 
-            rs = statement.executeQuery
-                ("SELECT COUNT(*) FROM PERSON_FP_RISK_FACTORS " +
-                 "WHERE PERSON_ID = 'tdd';");
-            assertTrue(rs.next());
-            assertEquals(rs.getInt(1), 0);
-            assertFalse(rs.next());
+            assertQueryValue(connection, countQuery, 0);
         }
 
         logger.debug("Exiting testDimensionInsert()");
     }
-    
+
+    @Test
+    public synchronized void testDeleteRecord() throws SQLException {
+        logger.debug("Entering testDeleteRecord()");
+        /* Add a record, then delete it completely. Also tests
+         * dimension table. */
+        ObjectNode doc = dimensionDoc("tdr", "cost");
+        Row insertRow = RowMock.make("1");
+        TransformedChange insert = new TransformedChange(insertRow, doc);
+        Row deleteRow = RowMock.makeDeletion("2", "tdr");
+        TransformedChange delete = new TransformedChange(deleteRow, null);
+        try (SqlWriter sw = new SqlWriter();
+             Connection connection = getConnection();
+             ) {
+            String countPersonQuery =
+                "SELECT COUNT(*) FROM PERSON WHERE ID = 'tdr';";
+            String countIdQuery =
+                "SELECT COUNT(*) FROM COUCHDB_IDS WHERE ID = 'tdr';";
+            assertQueryValue(connection, countPersonQuery, 0);
+            assertQueryValue(connection, countIdQuery, 0);
+
+            sw.send(insert);
+            assertEquals(sw.getSeq(), "1");
+
+            assertQueryValue(connection, countPersonQuery, 1);
+            assertQueryValue(connection, countIdQuery, 1);
+
+            sw.send(delete);
+            assertEquals(sw.getSeq(), "2");
+
+            assertQueryValue(connection, countPersonQuery, 0);
+            assertQueryValue(connection, countIdQuery, 0);
+        }
+
+        logger.debug("Exiting testDeleteRecord()");
+    }
 }

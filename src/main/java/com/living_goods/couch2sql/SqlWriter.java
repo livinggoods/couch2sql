@@ -17,6 +17,7 @@ import javax.naming.InitialContext;
 import javax.naming.NamingException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.lightcouch.ChangesResult.Row;
 
 /* Class which updates SQL Server with the resulting data. */
 public class SqlWriter implements Piped<TransformedChange> {
@@ -25,6 +26,8 @@ public class SqlWriter implements Piped<TransformedChange> {
     private PreparedStatement getSeqStatement;
     private PreparedStatement updateSeqStatement;
     private PreparedStatement insertSeqStatement;
+    private PreparedStatement insertCouchIdStatement;
+    private PreparedStatement deleteCouchIdStatement;
     private MultiKeyMap deleteStmtCache;
     private MultiKeyMap insertStmtCache;
     private static final Logger logger = LogManager.getLogger();
@@ -42,7 +45,16 @@ public class SqlWriter implements Piped<TransformedChange> {
                  "OUTPUT deleted.LAST_SEQ;");
             insertSeqStatement = connection.prepareStatement
                 ("INSERT INTO COUCHDB_REPLICATION (LAST_SEQ) VALUES (?);");
-
+            insertCouchIdStatement = connection.prepareStatement
+                ("INSERT INTO COUCHDB_IDS (ID, \"TABLE\") VALUES (?, (" +
+                 "  SELECT CT.ID FROM COUCHDB_TABLES CT " +
+                 "  WHERE CT.TABLE_NAME = ?));");
+            deleteCouchIdStatement = connection.prepareStatement
+                ("DELETE CI " +
+                 "OUTPUT CT.TABLE_NAME " +
+                 "FROM COUCHDB_TABLES CT, COUCHDB_IDS CI " +
+                 "WHERE CT.ID = CI.\"TABLE\" AND CI.ID = ?;");
+            
             seq = getSeqFromDB();
         } catch (SQLException e) {
             logger.fatal("Error setting up prepared statements", e);
@@ -84,27 +96,48 @@ public class SqlWriter implements Piped<TransformedChange> {
      * the database. */
     @Override
     public void send(TransformedChange input) {
-        /* FIXME: Need to handle record deletion! */
-        JsonNode json = input.getResult();
         try {
-            /* We do this in three steps:
-             * 1. Clear out dimension table entries, if any
-             * 2. UPDATE or INSERT the target table.
-             * 3. Insert to the dimension table, if any.
-             */
-            /* n.b. json.get("foobar") will return null if absent. */
-            final JsonNode dimensions = json.get("dimensions");
-            deleteDimensionTables(dimensions);
-            upsertTargetTable(json);
-            insertDimensionTables(dimensions);
-            updateSequence(input.getRow().getSeq());
+            Row row = input.getRow();
+            if (row.isDeleted()) {
+                /* Handle record deletion. */
+                deleteCouchId(row.getId());
+            } else {
+                /* Update/Insert */
+                JsonNode json = input.getResult();
+                /* We do this in three steps:
+                 * 1. Clear out dimension table entries, if any
+                 * 2. UPDATE or INSERT the target table and ID table.
+                 * 3. Insert to the dimension table, if any.
+                 */
+                /* n.b. json.get("foobar") will return null if absent. */
+                final JsonNode dimensions = json.get("dimensions");
+                deleteDimensionTables(dimensions);
+                upsertTargetTable(json);
+                insertDimensionTables(dimensions);
+            }
+            updateSequence(row.getSeq());
             connection.commit();
         } catch (SQLException e) {
-            logger.fatal("Database error writing/updating data.", e);
+            logger.fatal("Database error during DML.", e);
             throw new IllegalStateException(e);
         }
     }
 
+    private void deleteCouchId(String id) throws SQLException {
+        deleteCouchIdStatement.setString(1, id);
+        deleteCouchIdStatement.execute();
+        ResultSet rs = deleteCouchIdStatement.getResultSet();
+        if (!rs.next()) {
+            throw new IllegalStateException
+                ("Tried to delete nonexistant id " + id);
+        }
+        String tableName = rs.getString(1);
+        final PreparedStatement deleteStmt =
+            makeDeleteStatement(tableName, "ID", id);
+        deleteStmt.executeUpdate();
+        assert !rs.next();
+    }
+    
     /* Clear out any dimension tables referenced by the input JSON
      * document. */
     private void deleteDimensionTables(JsonNode dimensions)
@@ -117,7 +150,7 @@ public class SqlWriter implements Piped<TransformedChange> {
             final String key_value = dimension.get("key_value").textValue();
             final PreparedStatement stmt =
                 makeDeleteStatement(table, key_column, key_value);
-            stmt.execute();
+            stmt.executeUpdate();
         }
     }
 
@@ -136,7 +169,7 @@ public class SqlWriter implements Piped<TransformedChange> {
                 objRow.put(key_column, key_value);
                 final PreparedStatement stmt =
                     makeInsertStatement(table, objRow);
-                stmt.execute();
+                stmt.executeUpdate();
             }
         }
     }
@@ -149,9 +182,19 @@ public class SqlWriter implements Piped<TransformedChange> {
         final JsonNode row = input.get("row");
         final PreparedStatement deleteStmt =
             makeDeleteStatement(table, "ID", row.get("ID").textValue());
-        deleteStmt.execute();
+        final int deletedRows = deleteStmt.executeUpdate();
+        logger.debug("Deleted " + deletedRows + " existing rows");
+        if (deletedRows == 0) {
+            /* This is a new row, need to insert COUCHDB_IDS too */
+            insertCouchIdStatement.setString(1, row.get("ID").textValue());
+            insertCouchIdStatement.setString(2, table);
+            insertCouchIdStatement.executeUpdate();
+        } else {
+            assert deletedRows == 1;
+        }
+
         final PreparedStatement insertStmt = makeInsertStatement(table, row);
-        insertStmt.execute();
+        insertStmt.executeUpdate();
     }
 
     /* Update the COUCHDB_REPLICATION table with the latest sequence. */
@@ -162,7 +205,7 @@ public class SqlWriter implements Piped<TransformedChange> {
         if (!rs.next()) {
             /* Nothing was there, do insert. */
             insertSeqStatement.setString(1, seq);
-            insertSeqStatement.execute();
+            insertSeqStatement.executeUpdate();
         } else {
             String oldSeq = rs.getString(1);
             if (rs.next()) {

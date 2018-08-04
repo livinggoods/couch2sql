@@ -28,7 +28,7 @@ public class JsonValidatorTest {
         testObj.addProperty("_rev", "1-23202479633c2b380f79507a776743d5");
         testObj.addProperty("name", "John Doe");
         testObj.addProperty("type", "person");
-        Row r = new RowMock("", testObj);
+        Row r = RowMock.make("", testObj);
         jv.send(r);
         assertEquals(p.getSent().size(), 1);
         assertEquals(p.getSent().get(0), r);
@@ -45,6 +45,17 @@ public class JsonValidatorTest {
         testObj.addProperty("type", "person");
         testObj.addProperty("foo", "bar");
         /* Should raise */
-        jv.send(new RowMock("", testObj));
+        jv.send(RowMock.make("", testObj));
+    }
+
+    /* Test a deleted document. */
+    @Test
+    public void testDeleted() {
+        PipedMock<Row> p = new PipedMock<Row>();
+        JsonValidator jv = new JsonValidator(p);
+        Row r = RowMock.makeDeletion("", "foo");
+        jv.send(r);
+        assertEquals(p.getSent().size(), 1);
+        assertEquals(p.getSent().get(0), r);
     }
 }
