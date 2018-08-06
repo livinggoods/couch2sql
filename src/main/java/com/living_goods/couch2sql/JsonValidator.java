@@ -3,6 +3,7 @@ package com.living_goods.couch2sql;
 import java.io.InputStream;
 import java.io.IOException;
 import org.everit.json.schema.Schema;
+import org.everit.json.schema.ValidationException;
 import org.everit.json.schema.loader.SchemaLoader;
 /* Note different capitalization. They are incompatible libraries. */
 import com.google.gson.JsonObject;
@@ -51,8 +52,15 @@ public class JsonValidator implements Piped<Row> {
         if (!input.isDeleted()) {
             /* Convert JsonObject to JSONObject */
             JSONObject jSONObject = new JSONObject(input.getDoc().toString());
-            /* Raises an exception if validation fails. */
-            schema.validate(jSONObject);
+            try {
+                schema.validate(jSONObject);
+            } catch (ValidationException e) {
+                JSONObject failures = e.toJSON();
+                logger.fatal("JSON Validation failed for document " +
+                             input.getDoc().get("_id").getAsString());
+                logger.fatal(failures.toString(4), e);
+                throw e;
+            }
         }
         
         target.send(input);
