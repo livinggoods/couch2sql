@@ -21,6 +21,13 @@
   </properties>
 
   <dependencies>
+    <!-- Sketchy groupId because there is no official Maven
+         distribution of winrun4j. -->
+    <dependency>
+      <groupId>xyz.cofe</groupId>
+      <artifactId>winrun4j</artifactId>
+      <version>0.4.5</version>
+    </dependency>
     <dependency>
       <groupId>com.schibsted.spt.data</groupId>
       <artifactId>jslt</artifactId>
