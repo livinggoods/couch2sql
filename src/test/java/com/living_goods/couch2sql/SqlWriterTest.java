@@ -7,11 +7,8 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import org.junit.Test;
-import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.lightcouch.ChangesResult.Row;
-import org.testcontainers.containers.MSSQLServerContainer;
-import org.testcontainers.containers.wait.HostPortWaitStrategy;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.sql.Connection;
@@ -33,40 +30,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /* Unit test for SqlWriter */
 public class SqlWriterTest {
-    /* We customize the MSSQLServerContainer to get a fixed host port,
-     * so that we can test configuration using JNDI. */
-    private static class CustomMSSQLServerContainer
-        extends MSSQLServerContainer {
-        public CustomMSSQLServerContainer() {
-            super();
-            this.addFixedExposedPort(1434, 1433);
-        }
-    }
-
     @ClassRule
-    public static MSSQLServerContainer mssqlserver =
+    public static CustomMSSQLServerContainer mssqlserver =
         new CustomMSSQLServerContainer();
-    
-    private synchronized Connection getConnection() throws SQLException {
-        Connection rval = mssqlserver.createConnection(";databaseName=JUNIT");
-        rval.setAutoCommit(true);
-        return rval;
-    }
-    
-    @BeforeClass
-    public synchronized static void beforeClass() throws SQLException {
-        /* Create the database */
-        try (Connection connection = mssqlserver.createConnection("")) {
-            Statement statement = connection.createStatement();
-            statement.execute("CREATE DATABASE JUNIT;");
-            /* Connection should be on autocommit, but just in case... */
-            connection.commit();
-        }
-        
-        SchemaWriter sw = new SchemaWriter();
-        sw.writeSchema();
-        sw.close();
-    }
     
     private static final Logger logger = LogManager.getLogger();
 
@@ -85,7 +51,7 @@ public class SqlWriterTest {
     public synchronized void testGetSeq() throws SQLException {
         logger.debug("Entering testGetSeq()");
         String seq = "abcd1234deadbeef";
-        try (Connection connection = getConnection()) {
+        try (Connection connection = mssqlserver.getConnection()) {
             /* In case we are run after other tests. */
             Statement deleteStatement = connection.createStatement();
             deleteStatement.executeUpdate
@@ -176,7 +142,7 @@ public class SqlWriterTest {
             assertEquals(sw.getSeq(), "1234abcd");
         }
 
-        Connection connection = getConnection();
+        Connection connection = mssqlserver.getConnection();
         Statement statement = connection.createStatement();
         ResultSet rs = statement.executeQuery("SELECT * FROM CLINIC");
         assertTrue(rs.next());
@@ -211,7 +177,7 @@ public class SqlWriterTest {
             assertEquals(sw.getSeq(), "2");
         }
 
-        Connection connection = getConnection();
+        Connection connection = mssqlserver.getConnection();
         Statement statement = connection.createStatement();
         ResultSet rs = statement.executeQuery("SELECT * FROM HEALTH_CENTER");
         assertTrue(rs.next());
@@ -257,7 +223,7 @@ public class SqlWriterTest {
             assertEquals(sw.getSeq(), "tdi");
         }
 
-        Connection connection = getConnection();
+        Connection connection = mssqlserver.getConnection();
         Statement statement = connection.createStatement();
         ResultSet rs = statement.executeQuery
             ("SELECT * FROM PERSON_FP_RISK_FACTORS");
@@ -286,13 +252,13 @@ public class SqlWriterTest {
         assertEquals(rs.getObject(1), value);
         assertFalse(rs.next());
     }
-    
+
     @Test
     public synchronized void testDimensionDelete() throws SQLException {
         logger.debug("Entering testDimensionInsert()");
         /* Pass a record in, and check out the resulting database state. */
         try (SqlWriter sw = new SqlWriter();
-             Connection connection = getConnection();
+             Connection connection = mssqlserver.getConnection();
              ) {
             ObjectNode doc = dimensionDoc("tdd", "cute", "partners");
             Row couchRow = RowMock.make("tdd1");
@@ -328,7 +294,7 @@ public class SqlWriterTest {
         Row deleteRow = RowMock.makeDeletion("2", "tdr");
         TransformedChange delete = new TransformedChange(deleteRow, null);
         try (SqlWriter sw = new SqlWriter();
-             Connection connection = getConnection();
+             Connection connection = mssqlserver.getConnection();
              ) {
             String countPersonQuery =
                 "SELECT COUNT(*) FROM PERSON WHERE ID = 'tdr';";

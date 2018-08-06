@@ -24,14 +24,10 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Unit test for CouchReader.
  */
 public class CouchReaderTest {
-    private static final String DOCKER_CONTAINER_NAME = "couchdb:1.6.1";
 
     @ClassRule
     public static GenericContainer couchContainer =
-        new FixedHostPortGenericContainer(DOCKER_CONTAINER_NAME)
-        .withFixedExposedPort(5985, 5984)
-        .waitingFor(Wait.forHttp("/")
-                    .forStatusCode(200));
+        new CustomCouchDBContainer();
 
     private static LinkedList<JsonObject> testData;
 
@@ -78,7 +74,7 @@ public class CouchReaderTest {
     }
 
     @Test(timeout=20000)
-    public void checkData() {
+    public void checkData() throws InterruptedException {
         PipedMock<Row> p = new PipedMock<Row>();
         CouchReader cr = new CouchReader(p);
         Thread t = new Thread(() -> cr.run());
@@ -92,11 +88,8 @@ public class CouchReaderTest {
         }
         assertTrue(t.isAlive());
         cr.stop();
-        try {
-            t.join();
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
+        t.join();
+
         JsonObject[] sent = (JsonObject[])
             p.getSent()
             .stream()
