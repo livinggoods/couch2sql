@@ -128,8 +128,11 @@ public class SqlWriter implements Piped<TransformedChange> {
         deleteCouchIdStatement.execute();
         ResultSet rs = deleteCouchIdStatement.getResultSet();
         if (!rs.next()) {
-            throw new IllegalStateException
-                ("Tried to delete nonexistant id " + id);
+            /* The ID was not found. This is not as bad as it sounds,
+             * as there is garbage in CouchDB that we don't load to
+             * SQL Server.
+             */
+            return;
         }
         String tableName = rs.getString(1);
         final PreparedStatement deleteStmt =
