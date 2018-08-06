@@ -253,9 +253,7 @@ public class SqlWriterTest {
         assertFalse(rs.next());
     }
 
-    @Test
-    public synchronized void testDimensionDelete() throws SQLException {
-        logger.debug("Entering testDimensionInsert()");
+    public void dimensionDeleteHelper(boolean empty) throws SQLException {
         /* Pass a record in, and check out the resulting database state. */
         try (SqlWriter sw = new SqlWriter();
              Connection connection = mssqlserver.getConnection();
@@ -272,6 +270,14 @@ public class SqlWriterTest {
             assertQueryValue(connection, countQuery, 2);
             
             doc = dimensionDoc("tdd");
+            if (!empty) {
+                /* We need to test sending a dimension with no rows
+                 * attribute (this is the same al deleting all
+                 * rows. */
+                ObjectNode dimension =
+                    (ObjectNode)doc.get("dimensions").get(0);
+                dimension.remove("rows");
+            }
             couchRow = RowMock.make("tdd2");
             tc = new TransformedChange(couchRow, doc);
             sw.send(tc);
@@ -279,8 +285,15 @@ public class SqlWriterTest {
 
             assertQueryValue(connection, countQuery, 0);
         }
-
-        logger.debug("Exiting testDimensionInsert()");
+    }
+    
+    /* Test inserting and then deleting data from dimension tables. */
+    @Test
+    public synchronized void testDimensionDelete() throws SQLException {
+        logger.debug("Entering testDimensionDelete()");
+        dimensionDeleteHelper(false);
+        dimensionDeleteHelper(true);
+        logger.debug("Exiting testDimensionDelete()");
     }
 
     @Test

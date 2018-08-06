@@ -162,17 +162,23 @@ public class SqlWriter implements Piped<TransformedChange> {
         if (dimensions == null) { return; }
         assert dimensions.isArray();
         for (JsonNode dimension : dimensions) {
-            final String table = dimension.get("table").textValue();
-            final String key_column = dimension.get("key_column").textValue();
-            final String key_value = dimension.get("key_value").textValue();
+            /* We may get a dimension with no rows, in which case JSLT
+             * will delete the attribute completely. */
+            if (dimension.get("rows") != null) {
+                final String table = dimension.get("table").textValue();
+                final String key_column =
+                    dimension.get("key_column").textValue();
+                final String key_value =
+                    dimension.get("key_value").textValue();
 
-            for (JsonNode row : dimension.get("rows")) {
-                /* The row is just an object with keys/values. */
-                final ObjectNode objRow = (ObjectNode) row;
-                objRow.put(key_column, key_value);
-                final PreparedStatement stmt =
-                    makeInsertStatement(table, objRow);
-                stmt.executeUpdate();
+                for (JsonNode row : dimension.get("rows")) {
+                    /* The row is just an object with keys/values. */
+                    final ObjectNode objRow = (ObjectNode) row;
+                    objRow.put(key_column, key_value);
+                    final PreparedStatement stmt =
+                        makeInsertStatement(table, objRow);
+                    stmt.executeUpdate();
+                }
             }
         }
     }
