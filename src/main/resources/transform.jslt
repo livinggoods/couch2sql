@@ -122,7 +122,7 @@ if (.type == "person")
           parse_string(.fp_screening.breastfeeding_duration),
         "FP_SPOUSE_INCLUDED_HES":
           parse_bool(.fp_screening.spouse_included_hes),
-        "FP_MOUST_RECENT_METHOD":
+        "FP_MOST_RECENT_METHOD":
           parse_string(.fp_screening.most_recent_method),
         "FP_PREGNANCY_TEST": parse_string(.fp_screening.pregnancy_test),
         "FP_CONFIRMED_PREGNANCY":
