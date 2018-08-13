@@ -24,14 +24,8 @@ CREATE TABLE PERSON (
     LINK_FACILITY                       NVARCHAR(4000),
     COHORT_NUMBER                       NVARCHAR(4000),
     DATE_OF_GRADUATION                  date,
-    /* This pulls from date_of_birth, dob_iso, and
-       ephemeral_dob->dob_iso. */
+    /* This pulls from just date_of_birth and disregards the rest. */
     DATE_OF_BIRTH                       date,
-
-    /* Skipping the other age attributes for now, as they are a mess.
-     * person_age_in_months is inclusive of years (i.e., a 3-year-old
-     * would be between 36 and 48). But person_age_months can be
-     * inclusive or exclusive. How to tell which? Just take it mod 12? */
 
     PREGNANT_AT_REGISTRATION            bit,
     FP_ELIGIBLE                         bit,
