@@ -50,6 +50,9 @@ def confirm_identical(array)
 def parse_string(string)
   if ($string == "") null else $string
 
+def parse_float(string)
+  if (contains($string, ["", "NaN"])) null else $string
+
 def parse_bool(string)
   if (contains($string, ["true", "yes", true])) true
     else if (contains($string, ["false", "no", false])) false
@@ -107,7 +110,7 @@ if (.type == "person")
         "FP_G_LMP_APPROX": parse_string(.fp_screening.g_lmp_approx),
         "FP_CURRENT_METHOD": parse_string(.fp_screening.current_method),
         "FP_WHY_STOP": parse_string(.fp_screening.why_stop),
-        "FP_DAYS_SINCE_LMP": parse_string(.fp_screening.days_since_lmp),
+        "FP_DAYS_SINCE_LMP": parse_float(.fp_screening.days_since_lmp),
         "FP_G_LMP_CALENDAR": parse_string(.fp_screening.g_lmp_calendar),
         "FP_BREASTFEEDING": parse_bool(.fp_screening.breastfeeding),
         "FP_NEW_FP_METHOD": parse_string(.fp_screening.new_fp_method),
