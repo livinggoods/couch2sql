@@ -2,15 +2,17 @@ package com.living_goods.couch2sql;
 
 import java.io.InputStream;
 import java.io.IOException;
+
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+
+import org.everit.json.schema.loader.SchemaLoader;
 import org.everit.json.schema.Schema;
 import org.everit.json.schema.ValidationException;
-import org.everit.json.schema.loader.SchemaLoader;
-/* Note different capitalization. They are incompatible libraries. */
-import com.google.gson.JsonObject;
+
 import org.json.JSONObject;
 import org.json.JSONTokener;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+
 import org.lightcouch.ChangesResult.Row;
 
 /* Class which deserializes a JsonObject and passes it through,
@@ -23,10 +25,10 @@ public class JsonValidator implements Piped<Row> {
     private static final Logger logger = LogManager.getLogger();
 
     private static final String SCHEMA_FILE = "/validate.json";
-    
-    JsonValidator(Piped<Row> target) {
+
+    JsonValidator(final Piped<Row> target) {
         this.target = target;
-        
+
         try (InputStream inputStream =
              getClass().getResourceAsStream(SCHEMA_FILE)) {
             if (inputStream == null) {
@@ -47,26 +49,27 @@ public class JsonValidator implements Piped<Row> {
     }
 
     @Override
-    public void send(Row input) {
+    public void send(final Row input) {
         /* Skip if deleted. */
         if (!input.isDeleted()) {
             /* Convert JsonObject to JSONObject */
-            JSONObject jSONObject = new JSONObject(input.getDoc().toString());
+            final JSONObject jSONObject =
+                new JSONObject(input.getDoc().toString());
             try {
                 schema.validate(jSONObject);
             } catch (ValidationException e) {
-                JSONObject failures = e.toJSON();
-                logger.fatal("JSON Validation failed for document " +
-                             input.getDoc().get("_id").getAsString());
+                final JSONObject failures = e.toJSON();
+                logger.fatal("JSON Validation failed for document "
+                             + input.getDoc().get("_id").getAsString());
                 logger.fatal(failures.toString(4), e);
                 throw e;
             }
         }
-        
+
         target.send(input);
     }
 
     /* We have no state here so this is a no-op. */
     @Override
-    public void close() {}
+    public void close() { }
 }

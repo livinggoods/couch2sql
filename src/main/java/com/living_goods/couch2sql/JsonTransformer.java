@@ -1,13 +1,16 @@
 package com.living_goods.couch2sql;
 
 import java.io.IOException;
-import com.google.gson.JsonObject;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.schibsted.spt.data.jslt.Parser;
+
 import com.schibsted.spt.data.jslt.Expression;
-import org.apache.logging.log4j.LogManager;
+import com.schibsted.spt.data.jslt.Parser;
+
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+
 import org.lightcouch.ChangesResult.Row;
 
 /* Class which transforms the input JSON document using a JSLT
@@ -21,7 +24,7 @@ public class JsonTransformer implements Piped<Row> {
 
     private static final String EXPRESSION_FILE = "transform.jslt";
 
-    JsonTransformer(Piped<TransformedChange> target) {
+    JsonTransformer(final Piped<TransformedChange> target) {
         this.target = target;
 
         transform = Parser.compileResource(EXPRESSION_FILE);
@@ -29,28 +32,27 @@ public class JsonTransformer implements Piped<Row> {
         mapper = new ObjectMapper();
     }
 
-    
     @Override
-    public void send(Row input) {
+    public void send(final Row input) {
         /* Just pass through if this is a deletion. */
         if (input.isDeleted()) {
             target.send(new TransformedChange(input, null));
-        } else {            
+        } else {
             /* Wierdly converting a String to a JsonNode can throw an
              * IOException. */
-            JsonNode inputNode;
+            final JsonNode inputNode;
             try {
                 inputNode = mapper.readTree(input.getDoc().toString());
             } catch (IOException e) {
                 logger.fatal("Could not convert JSON document to Jackson", e);
                 throw new IllegalArgumentException(e);
             }
-            JsonNode outputNode = transform.apply(inputNode);
+            final JsonNode outputNode = transform.apply(inputNode);
             target.send(new TransformedChange(input, outputNode));
         }
     }
 
     /* We have no state here so this is a no-op. */
     @Override
-    public void close() {}
+    public void close() { }
 }

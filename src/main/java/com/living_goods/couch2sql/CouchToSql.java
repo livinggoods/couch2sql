@@ -1,37 +1,34 @@
 package com.living_goods.couch2sql;
 
-import java.lang.Runnable;
 import org.boris.winrun4j.Service;
-import org.boris.winrun4j.EventLog;
-import org.boris.winrun4j.ServiceException;
 
 public class CouchToSql implements Service, Runnable {
-    public static void main(String[] args)
-    {
-        CouchToSql instance = new CouchToSql();
+    public static void main(final String[] args) {
+        final CouchToSql instance = new CouchToSql();
         instance.run();
     }
 
     @Override
-    public int serviceMain(String[] args) {
+    public int serviceMain(final String[] args) {
         run();
         return 0; /* Ignored? */
     }
 
     @Override
-    public int serviceRequest(int control) {
+    public int serviceRequest(final int control) {
         switch (control) {
         case SERVICE_CONTROL_STOP:
         case SERVICE_CONTROL_SHUTDOWN:
             stop();
             break;
+        default:
         }
         return 0; /* Ignored? */
     }
-    
+
     private SqlWriter writer;
     private CouchReader reader;
-    
+
     CouchToSql() {
         writer = new SqlWriter();
         final JsonTransformer transformer = new JsonTransformer(writer);

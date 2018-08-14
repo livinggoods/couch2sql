@@ -1,19 +1,21 @@
 package com.living_goods.couch2sql;
 
-import java.sql.SQLException;
-import java.sql.Connection;
-import java.util.Properties;
 import java.io.InputStream;
 import java.io.IOException;
-import javax.sql.DataSource;
-import org.apache.commons.dbcp2.BasicDataSourceFactory;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.util.Properties;
 
+import javax.sql.DataSource;
+
+import org.apache.commons.dbcp2.BasicDataSourceFactory;
+
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 /* Class to set up the SQL Server database connection using classpath
  * properties. */
-public class SqlConnection {
+public final class SqlConnection {
     private static final Logger logger = LogManager.getLogger();
     public static final String DATA_SOURCE_CONTEXT = "sqldb";
 
@@ -38,11 +40,12 @@ public class SqlConnection {
             final Properties properties = new Properties();
             try (InputStream configStream =
                      SqlConnection.class
-                     .getResourceAsStream("/" + DATA_SOURCE_CONTEXT +
-                                          ".properties")) {
+                     .getResourceAsStream("/" + DATA_SOURCE_CONTEXT
+                                          + ".properties")) {
                 properties.load(configStream);
             } catch (IOException e) {
-                String msg = "Could not read SQL Server configuration from the classpath: "
+                String msg = "Could not read SQL Server configuration "
+                    + "from the classpath: "
                     + DATA_SOURCE_CONTEXT;
                 logger.fatal(msg, e);
                 throw new IllegalStateException(msg, e);
@@ -54,12 +57,12 @@ public class SqlConnection {
                 dataSource = loader.createDataSource(properties);
             } catch (Exception e) {
                 /* Bad API just throws Exception. */
-                String msg = "Could not create SQL Server DataSource.";
+                final String msg = "Could not create SQL Server DataSource.";
                 logger.fatal(msg, e);
                 throw new IllegalStateException(msg, e);
             }
-            
-            Connection connection = dataSource.getConnection();
+
+            final Connection connection = dataSource.getConnection();
             connection.setAutoCommit(false);
 
             /* We really should only have one writer at a time. */
@@ -73,5 +76,5 @@ public class SqlConnection {
         }
     }
 
-    private SqlConnection() {};
+    private SqlConnection() { };
 }

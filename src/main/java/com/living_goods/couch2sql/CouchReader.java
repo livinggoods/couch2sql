@@ -1,11 +1,11 @@
 package com.living_goods.couch2sql;
 
-import com.google.gson.JsonObject;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import org.lightcouch.CouchDbClient;
 import org.lightcouch.Changes;
 import org.lightcouch.ChangesResult.Row;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 /* Class which reads data from CouchDB and feeds it into a Piped. */
 public class CouchReader {
@@ -15,7 +15,7 @@ public class CouchReader {
     private Changes couchChanges;
     private static final Logger logger = LogManager.getLogger();
 
-    CouchReader(Piped<Row> target) {
+    CouchReader(final Piped<Row> target) {
         this.target = target;
         /* Connection parameters come from couchdb.properties file */
         this.client = new CouchDbClient();
@@ -23,10 +23,10 @@ public class CouchReader {
 
     /* Sets the initial sequence number used for the changes
      * feed. Must be called before run(). */
-    public void setSeq(String seq) {
+    public void setSeq(final String seq) {
         this.seq = seq;
     }
-    
+
     /* Fetches all records and feeds them into the pipe. Runs until
      * stop() is called. */
     public void run() {
