@@ -187,12 +187,6 @@
       },
       "additionalProperties": false
     },
-    { "$comment": "FIXME: We have some clinic records with person data. Just suppress them for now.",
-      "properties": {
-        "type": { "const": "clinic"}
-      },
-      "required": ["_id", "_rev", "name", "type", "parent", "date_of_birth"]
-    },
     {
       "$comment": "Validation for type == clinic.",
       "required": ["_id", "_rev", "name", "type"],
@@ -260,10 +254,6 @@
         "alternate_phone": {"$ref": "#/definitions/phoneNumber"},
         "parent": {
           "oneOf": [
-            {
-              "$comment": "FIXME: This just can't be right.",
-              "const": "PARENT"
-            },
             {
               "$ref": "#/definitions/reference"
             }

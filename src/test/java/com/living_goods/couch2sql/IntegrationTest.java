@@ -100,7 +100,7 @@ public class IntegrationTest {
         ResultSet rs = connection.createStatement()
             .executeQuery("SELECT COUNT(*) FROM PERSON;");
         assertTrue(rs.next());
-        assertEquals(rs.getInt(1), 4);
+        assertEquals(rs.getInt(1), 9);
         assertFalse(rs.next());
         
         assertDB1(connection);

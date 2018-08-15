@@ -2,6 +2,7 @@
 
 CREATE TABLE CLINIC (
     ID                      NVARCHAR(4000) NOT NULL PRIMARY KEY,
+    REV                     NVARCHAR(34) NOT NULL,
     "NAME"                  NVARCHAR(4000) NOT NULL,
     NOTES                   NVARCHAR(4000),
     HEALTH_CENTER           NVARCHAR(4000) REFERENCES HEALTH_CENTER,
@@ -16,6 +17,8 @@ CREATE TABLE CLINIC (
     HAND_WASHING_FACILITIES BIT,
     LATITUDE                FLOAT,
     LONGITUDE               FLOAT,
+    ALTITUDE                FLOAT,
+    LOCATION_ACCURACY       SMALLINT,
     PHONE                   NVARCHAR(4000),
     IMPORTED_DATE           DATETIME,
     REPORTED_DATE           DATETIME,

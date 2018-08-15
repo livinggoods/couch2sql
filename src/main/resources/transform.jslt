@@ -173,5 +173,78 @@ if (.type == "person")
         }
       ]
     }
+else if (.type == "district_hospital")
+    {
+      "table": "DISTRICT_HOSPITAL",
+      "row": {
+        "ID": ._id,
+        "REV": ._rev,
+        "NAME": parse_string(.name),
+        "CONTACT": .contact._id,
+        "NOTES": .notes,
+        "REPORTED_DATE": parse_epoch(.reported_date),
+        "IS_MALARIA_ENDEMIC": parse_bool(.is_malaria_endemic),
+        "IS_AMOXICILIN_APPROVED": parse_bool(.is_amoxicilin_approved),
+        "IS_AMOXICILIN_DISPERSIBLE": parse_bool(.is_amoxicilin_dispersible)
+      }
+    }
+else if (.type == "health_center")
+    {
+      "table": "HEALTH_CENTER",
+      "row": {
+        "ID": ._id,
+        "REV": ._rev,
+        "NAME": parse_string(.name),
+        "CONTACT": .contact._id,
+        "NOTES": .notes,
+        "REPORTED_DATE": parse_epoch(.reported_date),
+        "SUPERVISOR": .supervisor,
+        "DISTRICT_HOSPITAL": .parent._id,
+        "IMPORTED_DATE": .imported_date,
+        "WARD": .ward,
+        "PARISH": .parish,
+        "VILLAGE": .village,
+        "DISTRICT": .district,
+        "HSD": .hsd,
+        "SUB_COUNTY": .sub_county,
+        "SUB_DISTRICT": .sub_district,
+        "COMMUNITY_UNIT": .community_unit,
+        "LANDMARK": .landmark,
+        "HEALTH_FACILITY": .health_facility,
+        "LINK_FACILITY": .link_facility,
+        "EXTERNAL_ID": .external_id,
+        "FACILITY_ID": .facility_id,
+        "IS_IN_RBF_PILOT": parse_bool(.is_in_rbf_pilot),
+        "LATITUDE": split(.geolocation, " ")[0],
+        "LONGITUDE": split(.geolocation, " ")[1]
+      }
+    }
+else if (.type == "clinic")
+    {
+      "table": "CLINIC",
+      "row": {
+        "ID": ._id,
+        "REV": ._rev,
+        "NAME": parse_string(.name),
+        "CONTACT": .contact._id,
+        "NOTES": .notes,
+        "HEALTH_CENTER": .parent._id,
+        "LATITUDE": split(.geolocation, " ")[0],
+        "LONGITUDE": split(.geolocation, " ")[1],
+        "ALTITUDE": split(.geolocation, " ")[2],
+        "LOCATION_ACCURACY": split(.geolocation, " ")[3],
+        "PHONE": .phone,
+        "REPORTED_DATE": parse_epoch(.reported_date),
+        "IMPORTED_DATE": .imported_date,
+        "SOLAR_LIGHT": parse_bool(.survey.solar_light),
+        "WATER_FILTER": parse_bool(.survey.water_filter),
+        "CHILDREN_UNDER_5": .survey.children_under_5,
+        "IMPROVED_COOK_STOVE": parse_bool(.survey.improved_cook_stove),
+        "LLIN": .survey.LLIN, // Not a typo, LLIN is uppercase.
+        "LATRINE": parse_bool(.survey.latrine),
+        "HOW_WATER_TREATED": .survey.how_water_treated,
+        "HAND_WASHING_FACILITIES": parse_bool(.survey.hand_washing_facilities)
+      }
+    }
 else
-  "ERROR"
+  error("Unknown document type")

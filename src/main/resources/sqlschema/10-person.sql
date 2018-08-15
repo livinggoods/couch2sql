@@ -13,7 +13,7 @@ CREATE TABLE PERSON (
     PHONE                               NVARCHAR(4000),
     ALTERNATE_PHONE                     NVARCHAR(4000),
     PHONE_OWNER                         NVARCHAR(4000),
-    /* No FK: Could reference clinic, health_center, or
+    /* No FK: Could reference person, clinic, health_center, or
        district_hospital. */
     PARENT                              NVARCHAR(4000),
     "ROLE"                              NVARCHAR(4000),

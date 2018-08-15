@@ -2,6 +2,7 @@
 
 CREATE TABLE DISTRICT_HOSPITAL (
     ID                          NVARCHAR(4000) NOT NULL PRIMARY KEY,
+    REV                         NVARCHAR(34) NOT NULL,
     "NAME"                      NVARCHAR(4000) NOT NULL,
     CONTACT                     NVARCHAR(4000) REFERENCES PERSON (ID),
     NOTES                       NVARCHAR(4000),

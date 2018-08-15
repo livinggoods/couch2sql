@@ -2,8 +2,10 @@
 
 CREATE TABLE HEALTH_CENTER (
     ID                          NVARCHAR(4000) PRIMARY KEY,
+    REV                         NVARCHAR(34) NOT NULL,
     "NAME"                      NVARCHAR(4000),
     CONTACT                     NVARCHAR(4000) REFERENCES PERSON (ID),
+    SUPERVISOR                  NVARCHAR(4000) REFERENCES PERSON (ID),
     DISTRICT_HOSPITAL           NVARCHAR(4000) REFERENCES DISTRICT_HOSPITAL,
     REPORTED_DATE               datetime,
     IMPORTED_DATE               datetime,
@@ -19,7 +21,10 @@ CREATE TABLE HEALTH_CENTER (
     HEALTH_FACILITY             NVARCHAR(4000),
     LINK_FACILITY               NVARCHAR(4000),
     EXTERNAL_ID                 NVARCHAR(4000),
-    FACILITY_ID                 integer
+    FACILITY_ID                 integer,
+    LATITUDE                    float,
+    LONGITUDE                   float,
+    IS_IN_RBF_PILOT             bit
 );
 
 INSERT INTO COUCHDB_TABLES (TABLE_NAME) VALUES ('HEALTH_CENTER');

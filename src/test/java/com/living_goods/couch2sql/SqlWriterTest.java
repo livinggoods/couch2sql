@@ -121,6 +121,7 @@ public class SqlWriterTest {
         doc.put("table", "CLINIC");
         ObjectNode row = new ObjectNode(JsonNodeFactory.instance);
         row.put("ID", "abc");
+        row.put("REV", "1-00d1a6320ebdcdef5064f0d0f3583534");
         row.put("NAME", "Turner Family");
         row.put("SOLAR_LIGHT", false);
         row.put("WATER_FILTER", false);
@@ -160,6 +161,7 @@ public class SqlWriterTest {
         doc.put("table", "HEALTH_CENTER");
         ObjectNode row = new ObjectNode(JsonNodeFactory.instance);
         row.put("ID", "def");
+        row.put("REV", "1-00d1a6320ebdcdef5064f0d0f3583534");
         row.put("NAME", "Kathleen Berg");
         row.put("IMPORTED_DATE", "2018-01-01 12:00:01.0");
         row.put("REPORTED_DATE", "2018-01-01 12:00:02.0");
