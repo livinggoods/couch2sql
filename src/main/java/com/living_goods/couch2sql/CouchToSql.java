@@ -33,7 +33,8 @@ public class CouchToSql implements Service, Runnable {
         writer = new SqlWriter();
         final JsonTransformer transformer = new JsonTransformer(writer);
         final JsonValidator validator = new JsonValidator(transformer);
-        reader = new CouchReader(validator);
+        final JsonFilter filter = new JsonFilter(validator);
+        reader = new CouchReader(filter);
         reader.setSeq(writer.getSeq());
     }
 
