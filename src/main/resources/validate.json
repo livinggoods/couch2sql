@@ -121,6 +121,16 @@
           "enum": ["", " ", "0 0"]
         }
       ]
+    },
+    "latitude longitude altitude accuracy": {
+      "type": "string",
+      "oneOf": [
+        {"pattern": "^-?\\d+\\.\\d+\\s+-?\\d+\\.\\d+\\s+\\d+\\s+\\d+$"},
+        {
+          "$comment": "Any of these means null.",
+          "enum": ["", " ", "0 0"]
+        }
+      ]
     }             
   },
   "type": "object",
@@ -199,17 +209,12 @@
         "contact": {"$ref": "#/definitions/reference"},
         "parent": {"$ref": "#/definitions/reference"},
         "geolocation": {"ref": "#/definitions/latitude longitude"},
-        "location": {
-          "$comment": "FIXME: Need to sort out these other location fields.",
-          "$ref": "#/definitions/sqlString"
-        },
+        "location": {"ref": "#/definitions/latitude longitude altitude accuracy"},
         "location_calc": {"$ref": "#/definitions/sqlString"},
         "location_date": {"$ref": "#/definitions/integerString"},
         "location_hint_calc": {"$ref": "#/definitions/sqlString"},
-        "location_hint_note": {"$ref": "#/definitions/sqlString"},
-        "location_note_message": {"$ref": "#/definitions/sqlString"},
-        
-        
+        "location_hint_note": {"$ref": "#/definitions/emptyString"},
+        "location_note_message": {"$ref": "#/definitions/emptyString"},
         "phone": {"$ref": "#/definitions/phoneNumber"},
         "imported_date": {"$ref": "#/definitions/iso_timestamp"},
         "reported_date": {"$ref": "#/definitions/epoch_timestamp"},

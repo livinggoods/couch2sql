@@ -17,8 +17,6 @@ CREATE TABLE CLINIC (
     HAND_WASHING_FACILITIES BIT,
     LATITUDE                FLOAT,
     LONGITUDE               FLOAT,
-    ALTITUDE                FLOAT,
-    LOCATION_ACCURACY       SMALLINT,
     PHONE                   NVARCHAR(4000),
     IMPORTED_DATE           DATETIME,
     REPORTED_DATE           DATETIME,
