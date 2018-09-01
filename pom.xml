@@ -31,13 +31,7 @@
     <dependency>
       <groupId>com.schibsted.spt.data</groupId>
       <artifactId>jslt</artifactId>
-      <!-- This is an unreleased version. 0.1.2 has some bugs that
-           affect us.
-           https://github.com/schibsted/jslt/pull/17
-           https://github.com/schibsted/jslt/pull/15
-           https://github.com/schibsted/jslt/pull/19
-      -->
-      <version>0.1.2a</version>
+      <version>0.1.3</version>
     </dependency>
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
